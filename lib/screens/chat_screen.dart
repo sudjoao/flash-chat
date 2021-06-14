@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flash_chat/components/message_stream.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/constants.dart';
 
@@ -12,6 +13,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
+  TextEditingController textController = TextEditingController();
   String newMessage;
   User loggedUser;
   @override
@@ -32,14 +34,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void getMessages() async {
-    await for (var snapshot in _firestore.collection('messages').snapshots()) {
-      for (var document in snapshot.docs) {
-        print(document.data());
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,9 +43,8 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
               icon: Icon(Icons.close),
               onPressed: () {
-                getMessages();
-                // _auth.signOut();
-                // Navigator.pop(context);
+                _auth.signOut();
+                Navigator.pop(context);
               }),
         ],
         title: Text('⚡️Chat'),
@@ -62,28 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('messages').snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                var messages = snapshot.data.docs;
-                List<Text> messagesWidget = [];
-                for (var message in messages) {
-                  String messageText = message['text'];
-                  String messageSender = message['sender'];
-                  Text messageWidget = Text('$messageText by $messageSender');
-                  messagesWidget.add(messageWidget);
-                }
-                return Column(
-                  children: messagesWidget,
-                );
-              },
-            ),
+            MessageStream(user: loggedUser),
             Container(
               decoration: kMessageContainerDecoration,
               child: Row(
@@ -91,6 +63,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: <Widget>[
                   Expanded(
                     child: TextField(
+                      controller: textController,
                       onChanged: (value) {
                         newMessage = value;
                       },
@@ -99,6 +72,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   TextButton(
                     onPressed: () {
+                      textController.clear();
                       _firestore.collection('messages').add({
                         'text': newMessage,
                         'sender': loggedUser.email,
